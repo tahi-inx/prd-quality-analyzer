@@ -29,7 +29,7 @@ aws sso login --sso-session inx-org-root
 AWS_PROFILE=inx-dev python3 scripts/analyze-prds.py --repo /path/to/inx-context
 ```
 
-The report is generated at `reports/prd-quality-report.html` and also deployed to GitHub Pages.
+The report is generated in `docs/` and served via GitHub Pages.
 
 ## Usage
 
@@ -81,11 +81,9 @@ PRDs are classified as pre- or post-May 12, 2026, when the standardized template
 prd-quality-analyzer/
 ├── scripts/
 │   └── analyze-prds.py            # Main analysis script
-├── reports/
-│   ├── prd-quality-report.html    # Latest auto-generated report
-│   └── prd-quality-analysis.html  # Manual baseline report
-├── docs/                          # GitHub Pages root
-│   └── *.html                     # Published reports
+├── docs/                          # GitHub Pages root — all reports live here
+│   ├── index.html                 # Redirect to latest report
+│   └── prd-quality-analysis.html  # Interactive dashboard
 ├── data/
 │   ├── prd-data.json              # Latest evaluation data (auto-generated)
 │   └── prd-data-YYYYMMDD-HHMM.json  # Timestamped archives
