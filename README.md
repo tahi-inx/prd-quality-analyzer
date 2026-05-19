@@ -4,6 +4,18 @@ Automated quality analysis for Product Requirements Documents (PRDs) in the [inx
 
 Scans all branches for PRD files, evaluates each against the standardized PRD template using **Amazon Bedrock (Claude Opus 4.6)**, and generates an interactive HTML dashboard.
 
+**[View the latest report](https://tahi-inx.github.io/prd-quality-analyzer/prd-quality-analysis.html)**
+
+## AWS Account
+
+| Field | Value |
+|-------|-------|
+| Profile | `inx-dev` |
+| Account ID | `590184058999` |
+| Region | `eu-central-1` |
+| Bedrock Model | `eu.anthropic.claude-opus-4-6-v1` |
+| SSO Session | `inx-org-root` |
+
 ## Quick Start
 
 ```bash
@@ -17,7 +29,7 @@ aws sso login --sso-session inx-org-root
 AWS_PROFILE=inx-dev python3 scripts/analyze-prds.py --repo /path/to/inx-context
 ```
 
-The report is generated at `reports/prd-quality-report.html`. Open it in any browser.
+The report is generated at `reports/prd-quality-report.html` and also deployed to GitHub Pages.
 
 ## Usage
 
@@ -68,12 +80,14 @@ PRDs are classified as pre- or post-May 12, 2026, when the standardized template
 ```
 prd-quality-analyzer/
 ├── scripts/
-│   └── analyze-prds.py       # Main analysis script
+│   └── analyze-prds.py            # Main analysis script
 ├── reports/
-│   ├── prd-quality-report.html  # Latest generated report (auto-generated)
-│   └── prd-quality-analysis.html # Manual baseline report
+│   ├── prd-quality-report.html    # Latest auto-generated report
+│   └── prd-quality-analysis.html  # Manual baseline report
+├── docs/                          # GitHub Pages root
+│   └── *.html                     # Published reports
 ├── data/
-│   ├── prd-data.json            # Latest evaluation data (auto-generated)
+│   ├── prd-data.json              # Latest evaluation data (auto-generated)
 │   └── prd-data-YYYYMMDD-HHMM.json  # Timestamped archives
 ├── requirements.txt
 └── README.md

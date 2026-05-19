@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD Quality Analysis — inx-context</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e0e10; --surface: #1a1a1e; --border: #2a2a2e; --text: #e4e4e7;
+    --muted: #a1a1aa; --accent: #3b82f6; --success: #22c55e; --warning: #eab308;
+    --danger: #ef4444; --info: #3b82f6; --neutral: #71717a;
+    --success-bg: #052e16; --warning-bg: #422006; --danger-bg: #450a0a; --info-bg: #172554;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 32px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 1.35rem; font-weight: 600; margin: 32px 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 20px 0 8px; }
+  p, .text { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
+  .subtitle { color: var(--muted); font-size: 0.8rem; margin-bottom: 24px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  .callout { border-radius: 8px; padding: 16px 20px; margin: 16px 0; border-left: 4px solid; }
+  .callout-info { background: var(--info-bg); border-color: var(--info); }
+  .callout-warning { background: var(--warning-bg); border-color: var(--warning); }
+  .callout-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+  .callout-body { font-size: 0.85rem; color: var(--muted); }
+
+  .stats-grid { display: grid; gap: 12px; margin: 16px 0; }
+  .stats-4 { grid-template-columns: repeat(4, 1fr); }
+  .stats-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 768px) { .stats-4, .stats-3 { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-value { font-size: 1.8rem; font-weight: 700; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  .stat-success .stat-value { color: var(--success); }
+  .stat-warning .stat-value { color: var(--warning); }
+  .stat-danger .stat-value { color: var(--danger); }
+  .stat-info .stat-value { color: var(--info); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
+  th { background: var(--surface); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); position: sticky; top: 0; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .row-success td { background: rgba(34,197,94,0.08) !important; }
+  .row-info td { background: rgba(59,130,246,0.08) !important; }
+  .row-warning td { background: rgba(234,179,8,0.06) !important; }
+  .row-danger td { background: rgba(239,68,68,0.08) !important; }
+  td.r { text-align: right; }
+  td.c { text-align: center; }
+
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+  .pill-success { background: var(--success); color: #000; }
+  .pill-info { background: var(--info); color: #fff; }
+  .pill-warning { background: var(--warning); color: #000; }
+  .pill-danger { background: var(--danger); color: #fff; }
+  .pill-neutral { background: var(--neutral); color: #fff; }
+
+  .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+  canvas { max-height: 260px; }
+
+  details { margin: 8px 0; }
+  summary { cursor: pointer; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; user-select: none; }
+  summary:hover { background: #222226; }
+  summary::marker { content: ''; }
+  summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details .detail-body { padding: 12px 0; }
+  .count-badge { background: var(--border); color: var(--muted); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500; }
+  .summary-pills { margin-left: auto; display: flex; gap: 6px; }
+
+  .findings-block { margin-bottom: 16px; }
+  .findings-block p { margin-top: 4px; }
+
+  .score-5 { color: var(--success); font-weight: 600; }
+  .score-4 { color: var(--info); font-weight: 600; }
+  .score-3 { color: var(--warning); font-weight: 600; }
+  .score-2 { color: var(--danger); font-weight: 600; }
+  .score-1 { color: var(--danger); font-weight: 600; }
+  .score-0 { color: var(--muted); }
+
+  .generated-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>PRD Quality Analysis — inx-context (Full Repository)</h1>
+<div class="subtitle">Analysis date: 2026-05-19 | Scope: entire repository (solutions/, discovery/, regulations/) across main + all feature branches</div>
+
+<div class="callout callout-info">
+  <div class="callout-title">May 12 Cutoff</div>
+  <div class="callout-body">On May 12, 2026, a communication went out requiring all teams to use the standardized PRD template from the create-prd skill. PRDs are classified as pre- or post-May 12 based on their git creation date. Post-May 12 PRDs show dramatically higher template adherence.</div>
+</div>
+
+<div class="stats-grid stats-4" id="top-stats"></div>
+<div class="stats-grid stats-4" id="secondary-stats"></div>
+
+<hr>
+<h2>Location Hygiene</h2>
+<div class="callout callout-warning" id="location-callout"></div>
+<table id="location-table"></table>
+
+<details>
+  <summary>Mislocated &amp; Duplicate Details <span class="count-badge" id="mislocated-count"></span></summary>
+  <div class="detail-body"><table id="mislocated-table"></table></div>
+</details>
+
+<hr>
+<h2>Before vs After May 12</h2>
+<div class="chart-container"><canvas id="beforeAfterChart"></canvas></div>
+<p class="text" id="beforeAfterCaption"></p>
+
+<hr>
+<h2>Average Score by Solution (Pre vs Post May 12)</h2>
+<div class="chart-container"><canvas id="solutionChart"></canvas></div>
+<p class="text">Grouped by solution showing pre-May 12 (blue) vs post-May 12 (green) averages. Solutions with no post-May 12 PRDs show only the pre bar. KB ingestions and duplicates excluded.</p>
+
+<hr>
+<h2>Solution-Level Summary</h2>
+<table id="solution-summary"></table>
+
+<hr>
+<h2>Scoring Rubric</h2>
+<table id="rubric-table"></table>
+
+<hr>
+<h2>Detailed PRD Inventory</h2>
+<div id="inventory"></div>
+
+<hr>
+<h2>Key Findings</h2>
+<div id="findings"></div>
+
+<hr>
+<h2>Recommendations</h2>
+<table id="recommendations"></table>
+
+<div class="generated-footer" id="footer"></div>
+
+<script>
+const prdData = [
+  {s:"SCDD",n:"INX-20428 Briink AI Screening (Confluence)",d:"2026-02-09",sc:2,b:"main",post:false,notes:"Confluence export. Rich context and detail but no template structure, no RULE-XX, no US-XX.",t:"PRD",loc:"solutions/",path:"solutions/scdd/INX-20428-briink-ai-screening/PRD.md"},
+  {s:"SCDD",n:"INX-20428 AI Screening (refactored)",d:"2026-05-07",sc:4,b:"INX-20428-ai-governance-prd-ai-screening",post:false,notes:"Uses US-01\u2013US-04. 13 features with ACs and permission matrices. Missing RULE-XX, metrics, state machine, rollout.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20428 AI Screening (alt)",d:"2026-02-20",sc:2,b:"INX-20428-implementation-plan-alt",post:false,notes:"Flat AC-only spec. 12 features with ACs but no overview, problem, rules, metrics, or template structure.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20552 Async Supplier Upload",d:"2026-04-09",sc:3,b:"main",post:false,notes:"Clean feature breakdown with ACs. Missing problem statement, rules, metrics, states, decisions.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-00 Async Upload (early branch)",d:"2026-02-06",sc:2,b:"INX-00-async-upload",post:false,notes:"Earliest PRD \u2014 identical content to main version. Minimal template adherence.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20565 Assessment Updates (program)",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Exemplary program PRD. RULE-01-S01 through RULE-14-S01, INV-XX invariants, D# decisions. Coordinates 4 child PRDs.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20565 Biodiversity Assessment",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Full template with RULE-XX, INV-XX, mermaid flows, tracking events. Detailed appendix with per-question spec.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20565 EPRO Assessment Update",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Full template with RULE-XX, INV-XX, mermaid flows. Soft migration scoring exclusion rule explicitly defined.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20565 HRLA Assessment Update",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Full template with RULE-XX, INV-05 through INV-07. Complex chapter restructuring spec.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20565 Marine Shipment Pollution",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Most complete child PRD \u2014 all template sections including NFRs. 10 RULE entries, INV-01\u2013INV-07, D1\u2013D10.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20567 CI Updates 2026",d:"2026-04-29",sc:4,b:"main",post:false,notes:"RULE-XX format, detailed export column contracts. Missing user flow diagram, state & invariants, NFRs.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20646 Overall Assessment Progress",d:"2026-04-09",sc:5,b:"main",post:false,notes:"Most template-complete: RULE-XX with failure rules, STATE-01 with transitions, NFRs with targets, 7 features.",t:"PRD",loc:"solutions/"},
+  {s:"SCDD",n:"INX-20646 Progress (Isa-test branch)",d:"2026-04-07",sc:3,b:"Isa-test-q2-prds",post:false,notes:"Earlier version. RULE-XX present but metrics, events, API impact tables all empty.",t:"PRD",loc:"solutions/"},
+
+  {s:"EUDR",n:"Delete Products API (original)",d:"2026-04-29",sc:2,b:"main",post:false,notes:"Free-form tables. No RULE-XX, no US-XX, no tracking events. AC1-AC7 present.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"Delete Products API (template)",d:"2026-04-27",sc:5,b:"main",post:false,notes:"Full RULE-XX-S##/F## format. Key decisions D1-D7 with rationale. Pricing section. Comprehensive.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"GeoJSON Upload (PRDs/)",d:"2026-04-27",sc:3,b:"main",post:false,notes:"Detailed validation rules with error messages. No RULE-XX format, no key decisions section.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"ROCK-948 Product Deletion API",d:"2026-04-27",sc:5,b:"main",post:false,notes:"Full RULE-01-S01 through RULE-02-F02. Complete pricing framework with tier mapping. Identical template structure.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"ROCK-984 Batch API Part 2",d:"2026-04-29",sc:5,b:"main",post:false,notes:"All 12 numbered sections. US-01\u2013US-04. RULE-XX with success/failure. Mermaid sequence diagram. Customer evidence.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"Supplier DDS Precheck Validation",d:"2026-04-27",sc:3,b:"main",post:false,notes:"Very thorough (688 lines). AC1-AC23. Detailed TRACES API integration. No RULE-XX format despite detailed behaviors.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"Readiness Assessment Public API",d:"2026-04-27",sc:3,b:"main",post:false,notes:"Excellent self-review section. Detailed API specs with examples. No RULE-XX, no formal template numbering.",t:"Exploration",loc:"solutions/"},
+  {s:"EUDR",n:"Readiness Assessment v2",d:"2026-04-27",sc:3,b:"main",post:false,notes:"Detailed questionnaire spec with malus tables. Amplitude events table. v1\u2192v2 migration analysis.",t:"Exploration",loc:"solutions/"},
+  {s:"EUDR",n:"Subsequent Downstream Assessment",d:"2026-04-27",sc:3,b:"main",post:false,notes:"Key decisions D1-D4. State model with transitions. Partial RULE format (incomplete S##/F##). Many TBDs.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"ROCK-852 GeoJSON Upload (features/)",d:"2026-03-09",sc:3,b:"main",post:false,notes:"Detailed validation rules. Figma design link. No RULE-XX, no key decisions. Uses \u2018Requirements\u2019 format.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"ROCK-853 Map Drawing",d:"2026-03-09",sc:2,b:"main",post:false,notes:"Reads more like combined PRD + implementation plan + tech spec. No RULE-XX. Exhaustive Amplitude events.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"ROCK-983 Batch API P1 Hierarchy",d:"2026-04-29",sc:5,b:"main",post:false,notes:"All 12 sections. US-01/02/03. RULE-01-S01 through RULE-03-S01. Breaking change flagged in API Impact.",t:"PRD",loc:"solutions/"},
+  {s:"EUDR",n:"Invitation Insights & Management",d:"2026-04-29",sc:4,b:"main",post:false,notes:"Good header. Problem Statement (Pain/Cost/Why now). Customer evidence table. Features with AC. MISLOCATED: lives in discovery/.",t:"PRD",loc:"discovery/"},
+  {s:"EUDR",n:"Individual Reminders & Email Customization",d:"2026-04-29",sc:4,b:"main",post:false,notes:"Good header. Problem Statement, Customer evidence. User Stories with persona. Features with AC. MISLOCATED: lives in discovery/.",t:"PRD",loc:"discovery/"},
+  {s:"EUDR",n:"Batch API P1 (discovery duplicate)",d:"2026-04-29",sc:5,b:"main",post:false,notes:"DUPLICATE of solutions/ version. Should be consolidated.",t:"Duplicate",loc:"discovery/"},
+  {s:"EUDR",n:"Batch API P2 (discovery duplicate)",d:"2026-04-29",sc:5,b:"main",post:false,notes:"DUPLICATE of solutions/ version. Should be consolidated.",t:"Duplicate",loc:"discovery/"},
+
+  {s:"Product Compliance",n:"PC Customer Dashboard Part 1",d:"2026-04-29",sc:5,b:"main",post:false,notes:"RULE-XX-S/F format. Compliance decision tree. 12 key decisions D# format. Tracking events table.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Assembly Detail Page",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Exemplary RULE-XX-S##/F## format. US-01\u2013US-05. Comprehensive state machines for 4 entities.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Excel Upload",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Thorough validation specs (file/row/cross-row). 23 key decisions with dates. RULE-XX-S/F format. Amplitude events.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Data Model",d:"2026-04-29",sc:3,b:"main",post:false,notes:"RULE-XX format (4 rules). D# decisions (8). System invariants. Missing metrics, NFRs, rollout, user flow.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Data Model Specification",d:"2026-04-29",sc:2,b:"main",post:false,notes:"Technical DB design doc with ER diagram and DDL. Not a PRD \u2014 complements PC-Data-Model.md.",t:"Spec/Model",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Data Flow",d:"2026-04-29",sc:0,b:"main",post:false,notes:"System-level data flow spec using RULE-DF format. Explicitly \u2018does not introduce new UI features\u2019. Not a PRD.",t:"Spec/Model",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC POC Part 1",d:"2026-04-29",sc:4,b:"main",post:false,notes:"RULE-XX-S/F format. Mermaid user flow. Detailed data points per wizard step. FAQ content. Missing explicit Problem Statement.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC Supplier Assessment",d:"2026-04-29",sc:5,b:"main",post:false,notes:"Most comprehensive: 29 key decisions, 21 open questions, RULE-XX-S/F, 7 features, NFRs, rollout. Excellent AI integration treatment.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC-136 Sticky Banner",d:"2026-04-29",sc:3,b:"main",post:false,notes:"Intentionally lightweight for 2-week banner. Clear ACs. No RULE format, no user stories, no metrics.",t:"PRD",loc:"solutions/"},
+  {s:"Product Compliance",n:"PC-104 AI Foundation BOM Parser",d:"2026-05-14",sc:5,b:"PC-104-ai-foundation-bom-parser",post:true,notes:"Gold standard. All numbered sections. US-01\u2013US-03. RULE-XX-S/F. AI governance GOV-AI-01\u201316. Kill-switch criteria.",t:"PRD",loc:"solutions/"},
+
+  {s:"Platform",n:"Geospatial Water Risk MVP (3 parts)",d:"2026-04-29",sc:4,b:"main",post:false,notes:"Covers all sections with strong rule format. Split across 3 files. Lacks US-XX identifiers.",t:"PRD",loc:"solutions/"},
+  {s:"Platform",n:"Water Risk MVP Draft (discovery)",d:"2026-04-17",sc:3,b:"main",post:false,notes:"Early draft with YAML frontmatter, numbered sections 1-3. References canonical version. MISLOCATED: lives in discovery/.",t:"PRD",loc:"discovery/"},
+  {s:"Platform",n:"VAL-217 Automated Answer Check",d:"2026-05-18",sc:5,b:"docs/val-217-automated-answer-check-prd",post:true,notes:"Full template. RULE-AC-XX-S##/F##, US-01\u201306, STATE-01 with transitions. Traceability tables. Exemplary.",t:"PRD",loc:"solutions/"},
+
+  {s:"FE-tech",n:"Assessments FE",d:"2026-03-21",sc:2,b:"main",post:false,notes:"Useful FE engineering doc but no RULE format, no US format, no tracking events, no key decisions.",t:"PRD",loc:"solutions/"},
+
+  {s:"Carbon",n:"CCF Prototype v2",d:"2026-05-18",sc:5,b:"carbon/pcf-ccf-docs",post:true,notes:"40+ RULE-XX entries across 11 features. Pseudocode, field-level mapping, units/conversions. Exceptional.",t:"PRD",loc:"solutions/"},
+  {s:"Carbon",n:"CRB-939 Product Priority Scoring",d:"2026-04-09",sc:5,b:"carbon/pcf-ccf-docs",post:false,notes:"Full RULE-XX with 20+ rules. STATE-XX for 2 entities. 21 key decisions. Measurable NFRs. Rollout flags.",t:"PRD",loc:"solutions/"},
+  {s:"Carbon",n:"CRB-1020 PCF Assumption Engine",d:"2026-05-11",sc:5,b:"CRB-1020-metadata-gap-filling",post:false,notes:"All 16 sections including Pricing Impact and AI governance. Auditor defensibility section. US-01\u2013US-05.",t:"PRD",loc:"solutions/"},
+  {s:"Carbon",n:"CRB-889 Material Tree Generation",d:"2026-03-26",sc:3,b:"CRB-889-carbon-material-prediction",post:false,notes:"Good ACs with JSON examples. State machine diagram. No RULE-XX format, no Features OUT, no user flow.",t:"PRD",loc:"solutions/"},
+  {s:"Carbon",n:"PCF Services (exploration)",d:"2026-03-24",sc:2,b:"INX-00-prd-template-v1",post:false,notes:"Titled \u2018Feature Specification\u2019. Has RULE-XX format but missing 8 sections. Early template experiment.",t:"Exploration",loc:"solutions/"},
+
+  {s:"CBAM",n:"Cost Simulator Excel Upload",d:"2026-05-04",sc:5,b:"docs/cbam-cost-simulator-discovery",post:false,notes:"RULE-XLS-SNN/FNN format. Cross-PRD terminology section. Design contract table. US-01\u2013US-04.",t:"PRD",loc:"solutions/"},
+  {s:"CBAM",n:"Cost Simulator Row Benchmarks",d:"2026-05-04",sc:5,b:"docs/cbam-cost-simulator-discovery",post:false,notes:"RULE-BM-SNN/FNN format. Paired-field invariant. EU Benchmark gating logic. Terminology alignment.",t:"PRD",loc:"solutions/"},
+  {s:"CBAM",n:"Simulator Packaging & Pricing",d:"2026-04-27",sc:1,b:"docs/cbam-simulator-pricing-packaging",post:false,notes:"Self-described \u2018PRD fragment\u2019. Pricing framework only \u2014 no user stories, features, rules, or metrics.",t:"Spec/Model",loc:"solutions/"},
+
+  {s:"CBAM",n:"Customs Data Cost Simulator (KB copy)",d:"2026-05-13",sc:0,b:"main",post:true,notes:"Confluence MHT export ingested into regulatory KB. Not an active PRD \u2014 reference material only.",t:"KB Ingestion",loc:"regulations/"},
+  {s:"Carbon",n:"Climatiq PRD (KB copy)",d:"2026-05-13",sc:0,b:"main",post:true,notes:"Confluence PDF export ingested into regulatory KB. 66-page verbatim extraction. Not an active PRD.",t:"KB Ingestion",loc:"regulations/"},
+  {s:"Carbon",n:"CCF Estimator PRD (KB copy)",d:"2026-05-13",sc:0,b:"main",post:true,notes:"Confluence MHT export ingested into regulatory KB. Not an active PRD.",t:"KB Ingestion",loc:"regulations/"},
+];
+
+const solutions = ["SCDD","EUDR","Product Compliance","Platform","Carbon","CBAM","FE-tech"];
+const active = prdData.filter(p => p.t !== "KB Ingestion" && p.t !== "Duplicate" && p.t !== "Pointer");
+const kb = prdData.filter(p => p.t === "KB Ingestion");
+const dupes = prdData.filter(p => p.t === "Duplicate");
+const mislocated = active.filter(p => p.loc !== "solutions/");
+const pre = active.filter(p => !p.post);
+const post = active.filter(p => p.post);
+const avg = (arr) => arr.length ? (arr.reduce((a,p) => a + p.sc, 0) / arr.length) : 0;
+const scoreLabel = sc => sc >= 5 ? "Exemplary" : sc >= 4 ? "Strong" : sc >= 3 ? "Partial" : sc >= 2 ? "Minimal" : sc >= 1 ? "None" : "N/A";
+const scoreClass = sc => `score-${Math.max(0, Math.min(5, sc))}`;
+const pillClass = sc => sc >= 5 ? "pill-success" : sc >= 4 ? "pill-info" : sc >= 3 ? "pill-warning" : "pill-danger";
+const rowClass = (p) => {
+  if (p.t === "KB Ingestion" || p.t === "Duplicate") return "";
+  return p.sc >= 5 ? "row-success" : p.sc >= 4 ? "row-info" : p.sc >= 3 ? "" : "row-danger";
+};
+
+function makeTable(el, headers, rows, opts = {}) {
+  let h = `<thead><tr>${headers.map((h,i) => `<th${opts.align && opts.align[i] ? ` style="text-align:${opts.align[i]}"` : ""}>${h}</th>`).join("")}</tr></thead><tbody>`;
+  rows.forEach((r, ri) => {
+    const cls = opts.rowClasses ? opts.rowClasses[ri] || "" : "";
+    h += `<tr class="${cls}">${r.map((c, ci) => `<td${opts.align && opts.align[ci] ? ` class="${opts.align[ci] === "right" ? "r" : opts.align[ci] === "center" ? "c" : ""}"` : ""}>${c}</td>`).join("")}</tr>`;
+  });
+  el.innerHTML = h + "</tbody>";
+}
+
+// Top stats
+document.getElementById("top-stats").innerHTML = [
+  {v: prdData.length, l: "Total Files Scanned", c: ""},
+  {v: active.length, l: "Active PRD Documents", c: "stat-info"},
+  {v: avg(active).toFixed(1), l: "Active Avg Score", c: avg(active) >= 3.5 ? "stat-warning" : "stat-danger"},
+  {v: avg(post).toFixed(1), l: "Post-May 12 Avg", c: "stat-success"},
+].map(s => `<div class="stat ${s.c}"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`).join("");
+
+document.getElementById("secondary-stats").innerHTML = [
+  {v: pre.length, l: "Pre-May 12", c: ""},
+  {v: post.length, l: "Post-May 12", c: "stat-success"},
+  {v: active.filter(p => p.b !== "main").length, l: "Branch-Only", c: "stat-info"},
+  {v: mislocated.length, l: "Mislocated (not in solutions/)", c: "stat-warning"},
+].map(s => `<div class="stat ${s.c}"><div class="stat-value">${s.v}</div><div class="stat-label">${s.l}</div></div>`).join("");
+
+// Location hygiene
+document.getElementById("location-callout").innerHTML = `<div class="callout-title">PRD files found outside solutions/</div><div class="callout-body">${mislocated.length} active PRD documents live outside the canonical solutions/ directory. ${dupes.length} additional files are duplicates of solutions/ PRDs, and ${kb.length} files are regulatory knowledge-base ingestions (verbatim Confluence exports, not active PRDs). These should be consolidated.</div>`;
+
+makeTable(document.getElementById("location-table"),
+  ["Directory","Active PRDs","Duplicates","KB Copies","Issue"],
+  [
+    ["solutions/", active.filter(p=>p.loc==="solutions/").length, "0", "0", "Canonical location \u2014 correct"],
+    ["discovery/", active.filter(p=>p.loc==="discovery/").length, dupes.length, "0", "PRDs should be moved to solutions/ once past discovery phase"],
+    ["regulations/", "0", "0", kb.length, "KB ingestions \u2014 not active PRDs, but named with \u2018prd\u2019 prefix"],
+  ],
+  { rowClasses: ["row-success","row-warning","row-danger"] }
+);
+
+document.getElementById("mislocated-count").textContent = mislocated.length + dupes.length + kb.length;
+makeTable(document.getElementById("mislocated-table"),
+  ["Name","Type","Directory","Solution","Action Needed"],
+  [
+    ...mislocated.map(p => [p.n, p.t, p.loc, p.s, "Move to solutions/" + p.s.toLowerCase().replace(/ /g,"-") + "/"]),
+    ...dupes.map(p => [p.n, "Duplicate", p.loc, p.s, "Delete \u2014 canonical copy exists in solutions/"]),
+    ...kb.map(p => [p.n, "KB Ingestion", p.loc, p.s, "No action \u2014 but rename to avoid PRD confusion"]),
+  ],
+  { rowClasses: [...mislocated.map(()=>"row-warning"), ...dupes.map(()=>"row-danger"), ...kb.map(()=>"")] }
+);
+
+// Before/After chart
+const preScores = [1,2,3,4,5].map(s => pre.filter(p=>p.sc===s).length);
+const postScores = [1,2,3,4,5].map(s => post.filter(p=>p.sc===s).length);
+new Chart(document.getElementById("beforeAfterChart"), {
+  type: "bar",
+  data: {
+    labels: ["Pre-May 12", "Post-May 12"],
+    datasets: [
+      {label:"Score 1 (None)", data:[preScores[0],postScores[0]], backgroundColor:"#ef4444"},
+      {label:"Score 2 (Minimal)", data:[preScores[1],postScores[1]], backgroundColor:"#eab308"},
+      {label:"Score 3 (Partial)", data:[preScores[2],postScores[2]], backgroundColor:"#71717a"},
+      {label:"Score 4 (Strong)", data:[preScores[3],postScores[3]], backgroundColor:"#3b82f6"},
+      {label:"Score 5 (Exemplary)", data:[preScores[4],postScores[4]], backgroundColor:"#22c55e"},
+    ]
+  },
+  options: { responsive:true, plugins:{legend:{labels:{color:"#a1a1aa"}}}, scales:{x:{stacked:true,ticks:{color:"#a1a1aa"},grid:{color:"#2a2a2e"}},y:{stacked:true,ticks:{color:"#a1a1aa"},grid:{color:"#2a2a2e"}}}}
+});
+document.getElementById("beforeAfterCaption").textContent = `Score distribution of active PRDs: pre-May 12 (${pre.length} docs) vs post-May 12 (${post.length} docs). All post-May 12 PRDs score 5/5.`;
+
+// Solution averages chart — split pre/post May 12
+const solAvgs = solutions.map(sol => {
+  const items = active.filter(p=>p.s===sol);
+  const preItems = items.filter(p=>!p.post);
+  const postItems = items.filter(p=>p.post);
+  return {
+    sol, count: items.length, avg: items.length ? Math.round(avg(items)*10)/10 : 0,
+    preAvg: preItems.length ? Math.round(avg(preItems)*10)/10 : null,
+    postAvg: postItems.length ? Math.round(avg(postItems)*10)/10 : null,
+    preCount: preItems.length, postCount: postItems.length
+  };
+});
+new Chart(document.getElementById("solutionChart"), {
+  type: "bar",
+  data: {
+    labels: solAvgs.map(s=>s.sol),
+    datasets: [
+      {
+        label: "Pre-May 12 Avg",
+        data: solAvgs.map(s => s.preAvg),
+        backgroundColor: "#3b82f6",
+        borderRadius: 4,
+      },
+      {
+        label: "Post-May 12 Avg",
+        data: solAvgs.map(s => s.postAvg),
+        backgroundColor: "#22c55e",
+        borderRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: "#a1a1aa" } },
+      tooltip: {
+        callbacks: {
+          afterLabel: function(ctx) {
+            const sa = solAvgs[ctx.dataIndex];
+            return ctx.datasetIndex === 0
+              ? `${sa.preCount} PRD${sa.preCount !== 1 ? "s" : ""}`
+              : `${sa.postCount} PRD${sa.postCount !== 1 ? "s" : ""}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: "#a1a1aa" }, grid: { color: "#2a2a2e" } },
+      y: { min: 0, max: 5, ticks: { color: "#a1a1aa" }, grid: { color: "#2a2a2e" } }
+    }
+  }
+});
+
+// Solution summary table
+makeTable(document.getElementById("solution-summary"),
+  ["Solution","Active PRDs","Avg Score","Pre-May 12","Post-May 12","Branch-Only","In discovery/","Maturity"],
+  solAvgs.map(sa => {
+    const items = active.filter(p=>p.s===sa.sol);
+    const mat = sa.avg >= 4.5 ? "High" : sa.avg >= 3.5 ? "Medium" : sa.avg >= 2.5 ? "Low" : "Very Low";
+    return [sa.sol, sa.count, sa.avg, items.filter(p=>!p.post).length, items.filter(p=>p.post).length, items.filter(p=>p.b!=="main").length, items.filter(p=>p.loc==="discovery/").length, `<span class="pill ${sa.avg >= 4.5 ? "pill-success" : sa.avg >= 3.5 ? "pill-info" : sa.avg >= 2.5 ? "pill-warning" : "pill-danger"}">${mat}</span>`];
+  }),
+  { align:["left","right","right","right","right","right","right","center"], rowClasses: solAvgs.map(s => s.avg >= 4.5 ? "row-success" : s.avg >= 3.5 ? "row-info" : s.avg >= 2.5 ? "row-warning" : "row-danger") }
+);
+
+// Rubric
+makeTable(document.getElementById("rubric-table"),
+  ["Score","Level","Criteria"],
+  [
+    ['<span class="score-5">5</span>',"Exemplary","Full template compliance. All numbered sections (1-12). US-XX format. RULE-XX-Snn format. YAML frontmatter. Comprehensive content."],
+    ['<span class="score-4">4</span>',"Strong","Most template sections present. User stories with persona. Good AC. May miss US-XX numbering or RULE format. Header metadata present."],
+    ['<span class="score-3">3</span>',"Partial","Has Overview, Problem, User Stories, Features but doesn\u2019t follow exact template format. Missing several sections. No RULE numbering."],
+    ['<span class="score-2">2</span>',"Minimal","Some PRD-like content but largely custom format. Missing most template sections. May be a spec/exploration rather than PRD."],
+    ['<span class="score-1">1</span>',"None","Free-form document, Confluence dump, or completely custom format. No template adherence."],
+    ['<span class="score-0">0</span>',"N/A","KB ingestion or duplicate \u2014 excluded from quality scoring."],
+  ],
+  { rowClasses: ["row-success","row-info","row-warning","row-danger","row-danger",""] }
+);
+
+// Detailed inventory
+const inv = document.getElementById("inventory");
+solutions.forEach(sol => {
+  const all = prdData.filter(p=>p.s===sol);
+  const act = active.filter(p=>p.s===sol);
+  if (!all.length) return;
+  const a = act.length ? avg(act).toFixed(1) : "0";
+  const nonActive = all.length - act.length;
+  const det = document.createElement("details");
+  const sum = document.createElement("summary");
+  sum.innerHTML = `${sol} <span class="count-badge">${all.length}</span><span class="summary-pills"><span class="pill ${Number(a) >= 4 ? "pill-success" : Number(a) >= 3 ? "pill-warning" : "pill-danger"}">Avg: ${a}</span>${nonActive > 0 ? `<span class="pill pill-neutral">+${nonActive} non-PRD</span>` : ""}</span>`;
+  det.appendChild(sum);
+  const body = document.createElement("div");
+  body.className = "detail-body";
+  const tbl = document.createElement("table");
+  makeTable(tbl,
+    ["PRD Name","Score","Date","Directory","Branch","Type","Key Findings"],
+    all.map(p => [
+      p.n,
+      p.sc === 0 ? '<span class="score-0">N/A</span>' : `<span class="${scoreClass(p.sc)}">${p.sc}/5 ${scoreLabel(p.sc)}</span>`,
+      p.d, p.loc, p.b === "main" ? "main" : p.b, p.t, p.notes
+    ]),
+    { rowClasses: all.map(p => rowClass(p)) }
+  );
+  body.appendChild(tbl);
+  det.appendChild(body);
+  inv.appendChild(det);
+});
+
+// Findings
+const findingsData = [
+  {title:"Template adoption is much stronger than initial sampling suggested", body:"Deep per-file analysis revealed that many PRDs \u2014 particularly in Product Compliance, SCDD (assessment updates cluster), and EUDR \u2014 actually follow the RULE-XX-S##/F## format, have detailed state machines, key decisions tables, and tracking events. Product Compliance alone has 5 PRDs scoring 5/5 on main, all created before May 12 \u2014 showing that this team adopted template conventions ahead of the formal rollout."},
+  {title:"Post-May 12 PRDs are exemplary \u2014 but strong pre-May 12 work exists too", body:"The post-May 12 PRDs (CCF Prototype, VAL-217, PC-104 BOM Parser) score 5/5 and set the gold standard. However, many pre-May 12 PRDs also score 5/5: SCDD\u2019s assessment updates cluster, EUDR\u2019s delete-products, rock-948, rock-984, rock-983, and Product Compliance\u2019s Dashboard, Assembly, Excel Upload, and Supplier Assessment."},
+  {title:"Quality varies within solutions, not just between them", body:"Every solution has both strong and weak PRDs. EUDR ranges from 2 to 5. SCDD ranges from 2 to 5. Carbon ranges from 2 to 5. The gap is between individual PRD authors/timing, not between teams. The oldest PRDs (Feb 2026) consistently score 1-2, while April-May PRDs cluster at 4-5."},
+  {title:"PRD location hygiene needs attention", body:`${mislocated.length} active PRDs live in discovery/ instead of solutions/. Two EUDR invitation-lifecycle PRDs (Score 4 each) and one Platform water-risk draft are in the wrong directory. Additionally, ${dupes.length} EUDR PRDs are duplicated between discovery/ and solutions/. The regulatory knowledge base contains ${kb.length} verbatim Confluence exports named with \u201Cprd\u201D prefixes.`},
+  {title:"Non-PRD documents and pricing fragments are mixed in", body:"Several files are not PRDs: PC Data Flow (data flow spec), PC Data Model Specification (DDL/ER doc), CBAM Simulator Packaging (self-described \u201CPRD fragment\u201D \u2014 pricing framework only), and Carbon PCF Services (\u201CFeature Specification\u201D). Reclassifying these would clean up the inventory."},
+  {title:"Significant work is on unmerged branches", body:`${active.filter(p=>p.b!=="main").length} of ${active.length} active documents (${Math.round(active.filter(p=>p.b!=="main").length/active.length*100)}%) exist only on feature branches, including some of the highest-quality PRDs (CRB-1020, CRB-889, VAL-217, PC-104, CBAM Cost Simulator pair).`},
+];
+document.getElementById("findings").innerHTML = findingsData.map(f => `<div class="findings-block"><h3>${f.title}</h3><p>${f.body}</p></div>`).join("");
+
+// Recommendations
+makeTable(document.getElementById("recommendations"),
+  ["Priority","Action","Impact"],
+  [
+    ["1","Merge branch-only PRDs to main (20+ high-quality PRDs are unmerged)","Makes best-practice examples visible; accurate quality picture on main"],
+    ["2","Move 3 mislocated discovery/ PRDs to their solutions/ directories","Single canonical location for all active PRDs"],
+    ["3","Delete 2 duplicate EUDR PRDs from discovery/ (canonical versions exist in solutions/)","Eliminates version confusion"],
+    ["4","Reclassify non-PRD docs (data models, specs, pricing fragments) into separate directories","Cleaner PRD inventory, more accurate quality metrics"],
+    ["5","Add US-XX identifiers to PRDs that use RULE-XX but lack formal story numbering","Most Score 4-5 PRDs already use RULE-XX but skip US-XX numbering"],
+    ["6","Retrofit the 6 PRDs scoring 2-3 that are actual PRDs (not specs)","Targets the genuine quality gaps"],
+    ["7","Rename or tag regulatory KB ingestions to avoid confusion with active PRDs","Prevents inflated PRD counts in future audits"],
+  ]
+);
+
+// Footer
+document.getElementById("footer").textContent = `Full repository scan of inx-context across main + all feature branches. ${prdData.length} total files identified, ${active.length} classified as active PRDs. Scores assigned via deep per-file analysis by specialized reviewers against the create-prd skill template (sections 1-12, US-XX format, RULE-XX-Snn format, YAML frontmatter, Problem Statement structure, State & Invariants, Key Decisions, Tracking Events). KB ingestions and duplicates excluded from quality averages.`;
+</script>
+</body>
+</html>
